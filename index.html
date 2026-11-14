@@ -30,10 +30,11 @@
   @media (min-width:860px){.main{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);align-items:start}}
   .preview{position:sticky;top:0;z-index:5;min-width:0;background:var(--bg);padding-block:8px;display:flex;justify-content:center;
     box-shadow:0 10px 16px -10px rgba(0,0,0,.6)}
-  .preview canvas{display:block;width:100%;height:auto;max-width:100%;border-radius:6px;box-shadow:0 10px 30px rgba(0,0,0,.45);transition:max-height .2s}
+  .preview canvas{display:block;width:100%;height:auto;max-width:100%;border-radius:6px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
   @media (max-width:859px){
-    .preview.compact{background:transparent;box-shadow:none;padding-block:6px;pointer-events:none;justify-content:flex-end}
-    .preview.compact canvas{width:auto;max-height:28vh;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.5);outline:2px solid rgba(255,255,255,.85);pointer-events:auto}
+    .preview{padding-block:6px 10px;box-shadow:none;border-bottom:1px solid var(--line)}
+    .preview canvas{width:auto;max-height:min(46vh,125vw)}
+    .wrap{gap:14px} form{gap:14px;padding:14px}
   }
   @media (min-width:860px){.preview{top:12px;box-shadow:none}.preview canvas{max-height:calc(100vh - 40px)}}
   .busy{position:absolute;inset:8px 0;display:flex;align-items:center;justify-content:center;background:rgba(3,25,22,.62);border-radius:6px;font-weight:700;font-size:18px}
@@ -358,12 +359,6 @@ document.querySelectorAll('input[name=theme],input[name=mode]').forEach(r=>r.add
   if(r.name==='mode'&&r.value==='cut'&&!state.cut&&state.photo){$('status').textContent='এই ছবির কাটআউট পাওয়া যায়নি।';$('mRound').checked=true;}
   draw();
 }));
-
-/* ---------- shrink the pinned preview once the form is scrolled into view (phones) ---------- */
-(()=>{const pv=document.querySelector('.preview');const base=pv.getBoundingClientRect().top+scrollY;
-  const on=()=>{const y=scrollY-base;
-    if(!pv.classList.contains('compact')&&y>160)pv.classList.add('compact');else if(pv.classList.contains('compact')&&y<20)pv.classList.remove('compact');};
-  addEventListener('scroll',on,{passive:true});})();
 
 /* ---------- boot ---------- */
 (async()=>{
