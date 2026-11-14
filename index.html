@@ -137,8 +137,8 @@ const W = 1080, H = 1350;
 const C_NAME = 'জহিরুল ইসলাম';
 const MP = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/';
 const THEMES = {
-  suit:    {grad:['#1aa39a','#0a5c58','#053a37'], img:'cand-suit.png',    box:{x:W+50-730, y:60, w:730, h:800}, fade:false, sname:'#0a4a46', em:'#0b7a72'},
-  panjabi: {grad:['#2a5fa8','#0e2a5c','#071a3d'], img:'cand-panjabi.png', box:{x:W+40-720, y:60, w:720, h:800}, fade:true,  sname:'#0e2a5c', em:'#1d4f9a'},
+  suit:    {grad:['#1aa39a','#0a5c58','#053a37'], img:'cand-suit.png',    box:{x:W+120-730, y:60, w:730, h:800}, fade:false, sname:'#0a4a46', em:'#0b7a72'},
+  panjabi: {grad:['#2a5fa8','#0e2a5c','#071a3d'], img:'cand-panjabi.png', box:{x:W+85-720, y:60, w:720, h:800}, fade:true,  sname:'#0e2a5c', em:'#1d4f9a'},
 };
 const MSGS = [
   [[{t:C_NAME,c:'em'},{t:' ভাইকে'}],[{t:'নারান্দিয়ার '},{t:'চেয়ারম্যান',c:'hl'},{t:' হিসেবে চাই'}]],
@@ -249,7 +249,7 @@ function draw(){
   ctx.fillStyle='#ffcc1f';roundRect(0,0,bw,56,8);ctx.fill();ctx.fillStyle='#132a12';ctx.fillText('সম্ভাব্য চেয়ারম্যান প্রার্থী',22,6);ctx.restore();
   ctx.save();ctx.fillStyle='#fff';ctx.shadowColor='rgba(0,0,0,.4)';ctx.shadowBlur=16;ctx.shadowOffsetY=6;
   ctx.font="800 96px 'Baloo Da 2'";ctx.fillText('জহিরুল',56,208);ctx.fillText('ইসলাম',56,308);ctx.restore();
-  ctx.fillStyle='#ffcc1f';ctx.font="58px Galada";ctx.fillText('নারান্দিয়ার',56,430);ctx.fillText('পাশে আছি',56,500);
+  ctx.fillStyle='#ffcc1f';ctx.font="48px Galada";ctx.fillText('নারান্দিয়ার পাশে আছি',56,432);
   // bottom zone
   poly([[0,H-470],[W,H-560],[W,H],[0,H]],'#ffcc1f');
   poly([[0,H-444],[W,H-534],[W,H],[0,H]],(state.photo&&state.strip)||'#ffffff');
