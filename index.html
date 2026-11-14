@@ -58,6 +58,10 @@
   .sw{width:28px;height:28px;border-radius:50%;flex:none;border:2px solid rgba(255,255,255,.6)}
   .status{min-height:1.5em;font-size:14px;color:var(--muted)}
   .status.err{color:#ffb4a8}
+  .nameErr{display:none;color:#ffb4a8;font-size:15px;font-weight:700}
+  .field.bad .nameErr{display:block}
+  .field.bad input{border-color:#ff6b57!important;box-shadow:0 0 0 3px rgba(255,107,87,.35);animation:shake .4s}
+  @keyframes shake{25%{transform:translateX(-6px)}50%{transform:translateX(6px)}75%{transform:translateX(-3px)}}
   .out{display:grid;gap:8px}
   .cap{display:grid;gap:8px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px}
   .cap p{margin:0;white-space:pre-line;font-size:15px}
@@ -94,6 +98,7 @@
       <div class="field">
         <label for="name">২. আপনার নাম</label>
         <input type="text" id="name" maxlength="28" placeholder="যেমন: রায়হান">
+        <div class="nameErr">⚠ কার্ড ডাউনলোডের আগে এখানে আপনার নাম লিখুন</div>
       </div>
 
 
@@ -406,11 +411,18 @@ $('copyCap').addEventListener('click',async()=>{
   catch{const r=document.createRange();r.selectNodeContents($('capText'));const sel=getSelection();sel.removeAllRanges();sel.addRange(r);$('copyCap').textContent='লেখাটি সিলেক্ট করা হয়েছে, কপি করুন';}
 });
 
+$('name').addEventListener('input',()=>{if($('name').value.trim()){$('name').closest('.field').classList.remove('bad');if($('status').classList.contains('err'))$('status').textContent='';}});
 /* ---------- save ---------- */
 $('f').addEventListener('submit',async e=>{
   e.preventDefault();
   const st=$('status');st.className='status';
-  if(!$('name').value.trim()){st.className='status err';st.textContent='আগে আপনার নাম লিখুন।';$('name').focus();return;}
+  if(!$('name').value.trim()){
+    st.className='status err';st.textContent='আগে উপরে আপনার নাম লিখুন।';
+    const f=$('name').closest('.field');f.classList.remove('bad');void f.offsetWidth;f.classList.add('bad');
+    // scroll the name box into view just below the sticky preview; no auto-focus so the keyboard doesn't pop up unexpectedly
+    const pv=document.querySelector('.preview'),stick=getComputedStyle(pv).position==='sticky'&&innerWidth<860?pv.offsetHeight:0;
+    scrollTo({top:Math.max(0,f.getBoundingClientRect().top+scrollY-stick-16),behavior:'smooth'});
+    return;}
   draw();
   const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
   const fname='johirul-support-card.png';
