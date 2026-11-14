@@ -276,6 +276,7 @@ function draw(){
 }
 
 /* ---------- background removal ---------- */
+// MediaPipe multiclass selfie model (hair / skin / clothes) + edge-aware refinement.
 let segP=null;
 function getSegmenter(){
   if(segP) return segP;
@@ -284,30 +285,82 @@ function getSegmenter(){
     const simd=await FilesetResolver.isSimdSupported();
     const name=simd?'vision_wasm_internal':'vision_wasm_nosimd_internal';
     const fileset={wasmLoaderPath:MP+'wasm/'+name+'.js',wasmBinaryPath:new URL(name+'.wasm',location.href).href};
-    const buf=new Uint8Array(await (await fetch('selfie_segmenter.tflite')).arrayBuffer());
+    const buf=new Uint8Array(await (await fetch(MODEL_URL)).arrayBuffer());
     return ImageSegmenter.createFromOptions(fileset,{baseOptions:{modelAssetBuffer:buf,delegate:'CPU'},runningMode:'IMAGE',outputConfidenceMasks:true,outputCategoryMask:false});
   })();
   segP.catch(()=>{segP=null;});
   return segP;
 }
+const MODEL_URL=window.MODEL_URL||'selfie_multiclass.tflite';
+
+function boxBlur(src,w,h,r){ // mean filter via integral image
+  const I=new Float64Array((w+1)*(h+1)),out=new Float32Array(w*h);
+  for(let y=0;y<h;y++){let row=0;for(let x=0;x<w;x++){row+=src[y*w+x];I[(y+1)*(w+1)+x+1]=I[y*(w+1)+x+1]+row;}}
+  for(let y=0;y<h;y++){const y0=Math.max(0,y-r),y1=Math.min(h,y+r+1);
+    for(let x=0;x<w;x++){const x0=Math.max(0,x-r),x1=Math.min(w,x+r+1);
+      out[y*w+x]=(I[y1*(w+1)+x1]-I[y0*(w+1)+x1]-I[y1*(w+1)+x0]+I[y0*(w+1)+x0])/((y1-y0)*(x1-x0));}}
+  return out;
+}
+function guided(I,p,w,h,r,eps){
+  const n=w*h,Ip=new Float32Array(n),II=new Float32Array(n);
+  for(let i=0;i<n;i++){Ip[i]=I[i]*p[i];II[i]=I[i]*I[i];}
+  const mI=boxBlur(I,w,h,r),mP=boxBlur(p,w,h,r),mIp=boxBlur(Ip,w,h,r),mII=boxBlur(II,w,h,r);
+  const A=new Float32Array(n),B=new Float32Array(n);
+  for(let i=0;i<n;i++){const v=mII[i]-mI[i]*mI[i];A[i]=(mIp[i]-mI[i]*mP[i])/(v+eps);B[i]=mP[i]-A[i]*mI[i];}
+  const mA=boxBlur(A,w,h,r),mB=boxBlur(B,w,h,r),q=new Float32Array(n);
+  for(let i=0;i<n;i++)q[i]=mA[i]*I[i]+mB[i];
+  return q;
+}
+function keepLargest(p,w,h){ // drop stray blobs not connected to the main person
+  const lab=new Int32Array(w*h),st=[];let best=0,bestN=0,id=0;
+  for(let s=0;s<w*h;s++){if(p[s]<0.5||lab[s])continue;id++;let n=0;st.push(s);lab[s]=id;
+    while(st.length){const i=st.pop();n++;const x=i%w,y=(i/w)|0;
+      for(const j of [x>0?i-1:-1,x<w-1?i+1:-1,y>0?i-w:-1,y<h-1?i+w:-1]) if(j>=0&&!lab[j]&&p[j]>=0.5){lab[j]=id;st.push(j);} }
+    if(n>bestN){bestN=n;best=id;}}
+  for(let i=0;i<w*h;i++) if(lab[i]&&lab[i]!==best)p[i]=0;
+  return bestN;
+}
 
 async function cutout(photo){
   const seg=await getSegmenter();
   const res=seg.segment(photo);
-  const mk=res.confidenceMasks[0];const mw=mk.width,mh=mk.height;const data=mk.getAsFloat32Array();
-  const mc=document.createElement('canvas');mc.width=mw;mc.height=mh;const mx=mc.getContext('2d');
-  const id=mx.createImageData(mw,mh);let minX=mw,minY=mh,maxX=-1,maxY=-1,on=0;
-  for(let i=0;i<data.length;i++){
-    const v=Math.min(1,Math.max(0,(data[i]-0.35)/0.3));id.data[i*4+3]=v*255;
-    if(v>0.5){on++;const x=i%mw,y=(i/mw)|0;if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;}
-  }
-  mk.close?.();res.close?.();
-  if(on<mw*mh*0.03) throw new Error('no-person');
+  const bg=res.confidenceMasks[0];const mw=bg.width,mh=bg.height;const bgd=bg.getAsFloat32Array();
+  // low-res foreground probability as an image
+  const mc=document.createElement('canvas');mc.width=mw;mc.height=mh;const mx=mc.getContext('2d');const id=mx.createImageData(mw,mh);
+  for(let i=0;i<bgd.length;i++){const v=Math.round((1-bgd[i])*255);id.data[i*4]=id.data[i*4+1]=id.data[i*4+2]=v;id.data[i*4+3]=255;}
   mx.putImageData(id,0,0);
+  res.confidenceMasks.forEach(m=>m.close?.());res.close?.();
+  // work resolution for refinement
+  const k=Math.min(1,720/Math.max(photo.width,photo.height)),ww=Math.round(photo.width*k),wh=Math.round(photo.height*k),n=ww*wh;
+  const wc=document.createElement('canvas');wc.width=ww;wc.height=wh;const wx=wc.getContext('2d',{willReadFrequently:true});
+  wx.imageSmoothingQuality='high';wx.drawImage(mc,0,0,ww,wh);const pd=wx.getImageData(0,0,ww,wh).data;
+  wx.drawImage(photo,0,0,ww,wh);const im=wx.getImageData(0,0,ww,wh).data;
+  const p=new Float32Array(n),I=new Float32Array(n);
+  for(let i=0;i<n;i++){p[i]=pd[i*4]/255;I[i]=(0.299*im[i*4]+0.587*im[i*4+1]+0.114*im[i*4+2])/255;}
+  const area=keepLargest(p,ww,wh);
+  if(area<n*0.03) throw new Error('no-person');
+  const r=Math.max(4,Math.round(Math.max(ww,wh)/90));
+  const q=guided(I,p,ww,wh,r,2e-3);
+  // keep refinement close to the person: limit alpha to a slightly grown version of the hard mask
+  const hard=new Float32Array(n);for(let i=0;i<n;i++)hard[i]=p[i]>=0.5?1:0;
+  const near=boxBlur(hard,ww,wh,Math.round(r*0.8));
+  for(let i=0;i<n;i++){const lim=Math.min(1,near[i]*2.5);if(q[i]>lim)q[i]=lim;}
+  // alpha, tightened, plus bbox
+  const ac=document.createElement('canvas');ac.width=ww;ac.height=wh;const ax=ac.getContext('2d');const ad=ax.createImageData(ww,wh);
+  let minX=ww,minY=wh,maxX=-1,maxY=-1;
+  const A=new Float32Array(n);
+  for(let i=0;i<n;i++){let a=(q[i]-0.3)/0.45;a=a<0?0:a>1?1:a;A[i]=a*a*(3-2*a);}
+  // drop leftover islands (bits of background/graphics) that are not joined to the person
+  const solid=new Float32Array(n);for(let i=0;i<n;i++)solid[i]=A[i]>=0.5?1:0;
+  keepLargest(solid,ww,wh);
+  const keep=boxBlur(solid,ww,wh,2);
+  for(let i=0;i<n;i++){const a=A[i]*Math.min(1,keep[i]*3);ad.data[i*4+3]=a*255;
+    if(a>0.5){const x=i%ww,y=(i/ww)|0;if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;}}
+  ax.putImageData(ad,0,0);
   const out=document.createElement('canvas');out.width=photo.width;out.height=photo.height;const o=out.getContext('2d');
-  o.drawImage(photo,0,0);o.globalCompositeOperation='destination-in';o.imageSmoothingQuality='high';o.drawImage(mc,0,0,photo.width,photo.height);
-  const sx=photo.width/mw,sy=photo.height/mh,pad=4;
-  const bx=Math.max(0,(minX-pad)*sx),by=Math.max(0,(minY-pad)*sy),bw=Math.min(photo.width,(maxX+pad+1)*sx)-bx,bh=Math.min(photo.height,(maxY+pad+1)*sy)-by;
+  o.drawImage(photo,0,0);o.globalCompositeOperation='destination-in';o.imageSmoothingQuality='high';o.drawImage(ac,0,0,photo.width,photo.height);
+  const sx=photo.width/ww,pad=6;
+  const bx=Math.max(0,(minX-pad)*sx),by=Math.max(0,(minY-pad)*sx),bw=Math.min(photo.width,(maxX+pad+1)*sx)-bx,bh=Math.min(photo.height,(maxY+pad+1)*sx)-by;
   const c=document.createElement('canvas');c.width=Math.round(bw);c.height=Math.round(bh);c.getContext('2d').drawImage(out,bx,by,bw,bh,0,0,bw,bh);
   return c;
 }
