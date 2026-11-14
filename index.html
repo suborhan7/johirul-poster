@@ -107,8 +107,8 @@
       <div class="field">
         <span class="lbl">৪. কার্ডের ডিজাইন</span>
         <div class="seg">
-          <label class="pick"><input type="radio" name="theme" id="tSuit" value="suit" checked><span class="sw" style="background:#0a5c58"></span>স্যুট</label>
-          <label class="pick"><input type="radio" name="theme" id="tPanj" value="panjabi"><span class="sw" style="background:#0e2a5c"></span>পাঞ্জাবি</label>
+          <label class="pick"><input type="radio" name="theme" id="tSuit" value="suit"><span class="sw" style="background:#0a5c58"></span>স্যুট</label>
+          <label class="pick"><input type="radio" name="theme" id="tPanj" value="panjabi" checked><span class="sw" style="background:#0e2a5c"></span>পাঞ্জাবি</label>
         </div>
       </div>
 
@@ -185,6 +185,16 @@ function drawSegments(segs,x,y,size,th,maxW){
 }
 function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
 
+function flagFrame(x,y,w,h,paint){
+  ctx.save();ctx.shadowColor='rgba(0,0,0,.35)';ctx.shadowBlur=14;ctx.shadowOffsetY=5;
+  ctx.fillStyle='#fff';roundRect(x-5,y-5,w+10,h+10,8);ctx.fill();ctx.restore();
+  ctx.save();roundRect(x,y,w,h,4);ctx.clip();paint(x,y,w,h);ctx.restore();
+}
+function drawFlags(){
+  const h=96,y=36,gap=22,wP=h,wB=Math.round(h*5/3),x2=W-40-wB,x1=x2-gap-wP;
+  if(imgs['party-flag.jpg'])flagFrame(x1,y,wP,h,(x,y,w,h)=>ctx.drawImage(imgs['party-flag.jpg'],x,y,w,h));
+  flagFrame(x2,y,wB,h,(x,y,w,h)=>{ctx.fillStyle='#006a4e';ctx.fillRect(x,y,w,h);ctx.fillStyle='#f42a41';ctx.beginPath();ctx.arc(x+w*0.45,y+h/2,h*0.3,0,Math.PI*2);ctx.fill();});
+}
 function containRect(iw,ih,b){const s=Math.min(b.w/iw,b.h/ih);const w=iw*s,h=ih*s;return {x:b.x+b.w-w,y:b.y+b.h-h,w,h};}
 
 function outlined(src,pad){ // returns canvas with white outline around transparent cutout
@@ -242,6 +252,8 @@ function draw(){
     if(th.fade){const fg=tc.createLinearGradient(t.width,0,t.width*0.9,0);fg.addColorStop(0,'rgba(0,0,0,1)');fg.addColorStop(1,'rgba(0,0,0,0)');tc.fillStyle=fg;tc.fillRect(0,0,t.width,t.height);}
     ctx.drawImage(t,r.x,r.y);
   }
+  // flags above the candidate's head: party flag + Bangladesh flag
+  drawFlags();
   // headline block
   ctx.fillStyle='rgba(255,255,255,.9)';ctx.font="500 30px 'Hind Siliguri'";ctx.fillText('নারান্দিয়া ইউনিয়ন পরিষদ নির্বাচন',56,52);
   ctx.save();ctx.translate(56,128);ctx.rotate(-3*Math.PI/180);
@@ -374,6 +386,7 @@ document.querySelectorAll('input[name=theme],input[name=mode]').forEach(r=>r.add
   ].map(p=>p.catch(()=>{})));
   draw();
   for(const k of Object.keys(THEMES)){try{imgs[THEMES[k].img]=await loadImg(THEMES[k].img);draw();}catch{}}
+  try{imgs['party-flag.jpg']=await loadImg('party-flag.jpg');draw();}catch{}
   getSegmenter().catch(()=>{}); // warm up the model in the background
 })();
 </script>
