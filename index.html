@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta property="og:title" content="আমিও আছি জহিরুল ইসলাম ভাইয়ের পাশে">
 <meta property="og:description" content="নিজের ছবি আর নাম দিয়ে সমর্থক কার্ড তৈরি করুন।">
-<meta property="og:image" content="og.png">
+<meta property="og:image" content="https://johirul-poster.vercel.app/og.png">
+<meta property="og:url" content="https://johirul-poster.vercel.app/">
 <title>জহিরুল সমর্থক কার্ড</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Galada&family=Baloo+Da+2:wght@600;800&family=Hind+Siliguri:wght@400;500;700&display=swap">
@@ -58,6 +59,8 @@
   .status{min-height:1.5em;font-size:14px;color:var(--muted)}
   .status.err{color:#ffb4a8}
   .out{display:grid;gap:8px}
+  .cap{display:grid;gap:8px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px}
+  .cap p{margin:0;white-space:pre-line;font-size:15px}
   .out img{width:100%;border-radius:6px}
   footer{font-size:13px;color:var(--muted)}
   [hidden]{display:none!important}
@@ -122,6 +125,11 @@
 
       <button type="submit" class="btn main" id="save">কার্ড ডাউনলোড করুন</button>
       <button type="button" class="btn ghost" id="share" hidden>ফেসবুক / হোয়াটসঅ্যাপে শেয়ার করুন</button>
+      <div class="cap" id="capBox" hidden>
+        <span class="hint">পোস্ট করার সময় এই ক্যাপশনটি দিন:</span>
+        <p id="capText"></p>
+        <button type="button" class="btn ghost" id="copyCap">ক্যাপশন কপি করুন</button>
+      </div>
       <div class="status" id="status" role="status"></div>
       <div class="out" id="out" hidden>
         <span class="hint">ছবিতে চেপে ধরে "Save image" দিন।</span>
@@ -337,6 +345,14 @@ async function onPhoto(file){
   $('busy').hidden=true;draw();
 }
 
+/* ---------- caption ---------- */
+const CAPTION="আমিও আছি জহিরুল ইসলাম ভাইয়ের পাশে। কথা নয়, কাজে বিশ্বাসী।\nআপনার কার্ড বানান 👉 https://johirul-poster.vercel.app\n#নারান্দিয়ার_পাশে_জহিরুল";
+$('capText').textContent=CAPTION;
+$('copyCap').addEventListener('click',async()=>{
+  try{await navigator.clipboard.writeText(CAPTION);$('copyCap').textContent='কপি হয়েছে ✓';}
+  catch{const r=document.createRange();r.selectNodeContents($('capText'));const sel=getSelection();sel.removeAllRanges();sel.addRange(r);$('copyCap').textContent='লেখাটি সিলেক্ট করা হয়েছে, কপি করুন';}
+});
+
 /* ---------- save ---------- */
 $('f').addEventListener('submit',async e=>{
   e.preventDefault();
@@ -346,10 +362,10 @@ $('f').addEventListener('submit',async e=>{
   const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
   const fname='johirul-support-card.png';
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fname;document.body.appendChild(a);a.click();a.remove();
-  $('outImg').src=a.href;$('out').hidden=false;
+  $('outImg').src=a.href;$('out').hidden=false;$('capBox').hidden=false;
   st.textContent='কার্ড ডাউনলোড হয়েছে। না হলে নিচের ছবিটি চেপে ধরে সেভ করুন।';
   const file=new File([blob],fname,{type:'image/png'});
-  if(navigator.canShare&&navigator.canShare({files:[file]})){$('share').hidden=false;$('share').onclick=()=>navigator.share({files:[file],text:'আমিও আছি জহিরুল ইসলাম ভাইয়ের পাশে #নারান্দিয়ার_পাশে_জহিরুল'}).catch(()=>{});}
+  if(navigator.canShare&&navigator.canShare({files:[file]})){$('share').hidden=false;$('share').onclick=()=>navigator.share({files:[file],text:CAPTION}).catch(()=>{});}
 });
 
 $('photo').addEventListener('change',e=>{const f=e.target.files[0];if(f){$('photoName').textContent=f.name;onPhoto(f);}});
