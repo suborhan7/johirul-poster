@@ -404,7 +404,7 @@ async function onPhoto(file){
 }
 
 /* ---------- caption ---------- */
-const CAPTION="আমিও আছি জহিরুল ইসলাম ভাইয়ের পাশে। কথা নয়, কাজে বিশ্বাসী।\nআপনার কার্ড বানান 👉 https://johirul-poster.vercel.app\n#নারান্দিয়ার_পাশে_জহিরুল";
+const CAPTION="আমিও আছি জহিরুল ইসলাম ভাইয়ের পাশে। কথা নয়, কাজে বিশ্বাসী।\n\nআপনিও আপনার সমর্থন কার্ড বানান এই লিংক থেকে 👇\nhttps://johirul-poster.vercel.app\n\n#নারান্দিয়ার_পাশে_জহিরুল";
 $('capText').textContent=CAPTION;
 $('copyCap').addEventListener('click',async()=>{
   try{await navigator.clipboard.writeText(CAPTION);$('copyCap').textContent='কপি হয়েছে ✓';}
@@ -423,22 +423,34 @@ $('f').addEventListener('submit',async e=>{
     const pv=document.querySelector('.preview'),stick=getComputedStyle(pv).position==='sticky'&&innerWidth<860?pv.offsetHeight:0;
     scrollTo({top:Math.max(0,f.getBoundingClientRect().top+scrollY-stick-16),behavior:'smooth'});
     return;}
-  draw();
+  draw();const ver=cardVer;
   const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
   const fname='johirul-support-card.png';
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fname;document.body.appendChild(a);a.click();a.remove();
   $('outImg').src=a.href;$('out').hidden=false;$('capBox').hidden=false;
   st.textContent='কার্ড ডাউনলোড হয়েছে। না হলে নিচের ছবিটি চেপে ধরে সেভ করুন।';
-  const file=new File([blob],fname,{type:'image/png'});
-  if(navigator.canShare&&navigator.canShare({files:[file]})){$('share').hidden=false;$('share').onclick=()=>navigator.share({files:[file],text:CAPTION}).catch(()=>{});}
+  shareFile=ver===cardVer?new File([blob],fname,{type:'image/png'}):null;
+  if(navigator.canShare&&navigator.canShare({files:[new File([blob],fname,{type:'image/png'})]})){$('share').hidden=false;}
+  if(ver!==cardVer)refreshOutput();
 });
+// share always sends the card as it looks now (re-rendered after any change), never a stale copy
+let shareFile=null,refreshT=0,cardVer=0;
+$('share').onclick=async()=>{
+  if(!shareFile){draw();const b=await new Promise(r=>cv.toBlob(r,'image/png'));shareFile=new File([b],'johirul-support-card.png',{type:'image/png'});}
+  navigator.share({files:[shareFile],text:CAPTION}).catch(()=>{});};
+function refreshOutput(){
+  cardVer++;shareFile=null;clearTimeout(refreshT);
+  if($('out').hidden)return;
+  refreshT=setTimeout(()=>cv.toBlob(b=>{shareFile=new File([b],'johirul-support-card.png',{type:'image/png'});
+    const old=$('outImg').src;$('outImg').src=URL.createObjectURL(b);if(old.startsWith('blob:'))URL.revokeObjectURL(old);},'image/png'),150);
+}
 
 $('photo').addEventListener('change',e=>{const f=e.target.files[0];if(f){$('photoName').textContent=f.name;onPhoto(f);}});
-['name','msg'].forEach(id=>$(id).addEventListener('input',draw));
+['name','msg'].forEach(id=>['input','change'].forEach(ev=>$(id).addEventListener(ev,()=>{draw();refreshOutput();})));
 document.querySelectorAll('input[name=theme],input[name=mode]').forEach(r=>r.addEventListener('change',()=>{
   if(r.name==='theme'&&state.photo)state.strip=stripColor(state.cut||state.photo,!state.cut);
   if(r.name==='mode'&&r.value==='cut'&&!state.cut&&state.photo){$('status').textContent='এই ছবির কাটআউট পাওয়া যায়নি।';$('mRound').checked=true;}
-  draw();
+  draw();refreshOutput();
 }));
 
 /* ---------- boot ---------- */
