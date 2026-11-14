@@ -136,8 +136,8 @@ const W = 1080, H = 1350;
 const C_NAME = 'জহিরুল ইসলাম';
 const MP = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/';
 const THEMES = {
-  suit:    {grad:['#1aa39a','#0a5c58','#053a37'], img:'cand-suit.png',    box:{x:W+60-640, y:110, w:640, h:700}, fade:false, sname:'#0a4a46', em:'#0b7a72'},
-  panjabi: {grad:['#2a5fa8','#0e2a5c','#071a3d'], img:'cand-panjabi.png', box:{x:W+40-660, y:140, w:660, h:680}, fade:true,  sname:'#0e2a5c', em:'#1d4f9a'},
+  suit:    {grad:['#1aa39a','#0a5c58','#053a37'], img:'cand-suit.png',    box:{x:W+50-730, y:60, w:730, h:735}, fade:false, sname:'#0a4a46', em:'#0b7a72'},
+  panjabi: {grad:['#2a5fa8','#0e2a5c','#071a3d'], img:'cand-panjabi.png', box:{x:W+40-720, y:60, w:720, h:735}, fade:true,  sname:'#0e2a5c', em:'#1d4f9a'},
 };
 const MSGS = [
   [[{t:C_NAME,c:'em'},{t:' ভাইকে'}],[{t:'নারান্দিয়ার '},{t:'চেয়ারম্যান',c:'hl'},{t:' হিসেবে চাই'}]],
@@ -148,7 +148,7 @@ const MSGS = [
 
 const $ = id => document.getElementById(id);
 const cv = $('card'), ctx = cv.getContext('2d');
-const state = {photo:null, cut:null, cutFailed:false};
+const state = {photo:null, cut:null, cutFailed:false, strip:null};
 const imgs = {};
 
 function loadImg(src){return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=src;});}
@@ -196,10 +196,10 @@ function outlined(src,pad){ // returns canvas with white outline around transpar
 }
 
 function drawSupporter(th){
-  const box={x:24,y:H-560,w:450,h:560};
+  const box={x:10,y:H-640,w:520,h:640};
   if(!state.photo){ // placeholder silhouette
     ctx.save();ctx.fillStyle='#9aa7a5';
-    ctx.beginPath();ctx.ellipse(box.x+225,box.y+230,78,94,0,0,Math.PI*2);ctx.fill();
+    ctx.translate(35,80);ctx.beginPath();ctx.ellipse(box.x+225,box.y+230,78,94,0,0,Math.PI*2);ctx.fill();
     ctx.fillRect(box.x+185,box.y+310,80,50);
     ctx.beginPath();ctx.moveTo(box.x+40,H);ctx.bezierCurveTo(box.x+50,H-120,box.x+110,H-190,box.x+195,H-205);ctx.lineTo(box.x+225,H-185);ctx.lineTo(box.x+255,H-205);ctx.bezierCurveTo(box.x+345,H-190,box.x+400,H-120,box.x+410,H);ctx.closePath();ctx.fill();
     ctx.fillStyle='#fff';ctx.font="700 30px 'Hind Siliguri'";ctx.textAlign='center';ctx.fillText('আপনার ছবি',box.x+225,H-80);ctx.restore();
@@ -213,7 +213,7 @@ function drawSupporter(th){
     ctx.save();ctx.shadowColor='rgba(0,0,0,.28)';ctx.shadowBlur=24;ctx.shadowOffsetY=10;
     ctx.drawImage(o,x,r.y,r.w,r.h);ctx.restore();
   }else{ // round frame
-    const p=state.photo, R=190, cx=box.x+225, cy=H-300;
+    const p=state.photo, R=215, cx=box.x+260, cy=H-290;
     const side=Math.min(p.width,p.height);
     const sx=(p.width-side)/2, sy=p.height>p.width?Math.max(0,(p.height-side)*0.25):0;
     ctx.save();ctx.beginPath();ctx.arc(cx,cy,R+18,0,Math.PI*2);ctx.fillStyle='#ffcc1f';ctx.shadowColor='rgba(0,0,0,.3)';ctx.shadowBlur=24;ctx.fill();ctx.restore();
@@ -251,10 +251,10 @@ function draw(){
   ctx.fillStyle='#ffcc1f';ctx.font="52px Galada";ctx.fillText('নারান্দিয়ার পাশে আছি',56,438);
   // bottom zone
   poly([[0,H-470],[W,H-560],[W,H],[0,H]],'#ffcc1f');
-  poly([[0,H-444],[W,H-534],[W,H],[0,H]],'#ffffff');
+  poly([[0,H-444],[W,H-534],[W,H],[0,H]],(state.photo&&state.strip)||'#ffffff');
   drawSupporter(th);
   // supporter text
-  const X=490, MW=W-X-40;
+  const X=545, MW=W-X-36;
   const name=($('name').value.trim()||'আপনার নাম');
   const place=$('place').value.trim();
   let y=place?968:985;
@@ -303,16 +303,32 @@ async function cutout(photo){
   return c;
 }
 
+/* strip colour from the supporter's clothes: light tint of their dominant hue */
+function stripColor(src,isPhoto){
+  const w=64,h=64,c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');
+  x.drawImage(src,0,0,w,h);const d=x.getImageData(0,0,w,h).data;
+  let r=0,g=0,b=0,n=0;
+  const y0=isPhoto?Math.floor(h*0.6):Math.floor(h*0.5), x0=isPhoto?Math.floor(w*0.3):0, x1=isPhoto?Math.ceil(w*0.7):w;
+  for(let yy=y0;yy<h;yy++)for(let xx=x0;xx<x1;xx++){const i=(yy*w+xx)*4;if(d[i+3]<200)continue;r+=d[i];g+=d[i+1];b+=d[i+2];n++;}
+  if(!n)return null;r/=n*255;g/=n*255;b/=n*255;
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2;let hh=0,ss=0;
+  if(mx!==mn){const dd=mx-mn;ss=l>.5?dd/(2-mx-mn):dd/(mx+mn);hh=mx===r?(g-b)/dd+(g<b?6:0):mx===g?(b-r)/dd+2:(r-g)/dd+4;hh*=60;}
+  const th=document.querySelector('input[name=theme]:checked').value==='suit'?175:215;
+  const hue=ss>0.18?hh:th;
+  const light=l>0.72;           // white / very light clothes need a deeper strip to stand out
+  return `hsl(${Math.round(hue)} ${light?38:45}% ${light?80:91}%)`;
+}
+
 async function onPhoto(file){
   const st=$('status');st.className='status';$('out').hidden=true;
   let bmp;
   try{bmp=await createImageBitmap(file,{imageOrientation:'from-image'});}catch{st.className='status err';st.textContent='এই ছবিটি খোলা যাচ্ছে না। JPG বা PNG ছবি দিন।';return;}
   const s=Math.min(1,1200/Math.max(bmp.width,bmp.height));
   const p=document.createElement('canvas');p.width=Math.round(bmp.width*s);p.height=Math.round(bmp.height*s);p.getContext('2d').drawImage(bmp,0,0,p.width,p.height);
-  state.photo=p;state.cut=null;draw();
+  state.photo=p;state.cut=null;state.strip=stripColor(p,true);draw();
   $('busy').hidden=false;
   try{
-    state.cut=await cutout(p);$('mCut').checked=true;st.textContent='';
+    state.cut=await cutout(p);state.strip=stripColor(state.cut);$('mCut').checked=true;st.textContent='';
   }catch(e){
     console.warn(e);$('mRound').checked=true;
     st.textContent=e.message==='no-person'?'ছবিতে মানুষ খুঁজে পাওয়া যায়নি, তাই গোল ফ্রেমে দেখানো হচ্ছে।':'কাটআউট করা গেল না, তাই গোল ফ্রেমে দেখানো হচ্ছে।';
@@ -338,6 +354,7 @@ $('f').addEventListener('submit',async e=>{
 $('photo').addEventListener('change',e=>{const f=e.target.files[0];if(f){$('photoName').textContent=f.name;onPhoto(f);}});
 ['name','place','msg'].forEach(id=>$(id).addEventListener('input',draw));
 document.querySelectorAll('input[name=theme],input[name=mode]').forEach(r=>r.addEventListener('change',()=>{
+  if(r.name==='theme'&&state.photo)state.strip=stripColor(state.cut||state.photo,!state.cut);
   if(r.name==='mode'&&r.value==='cut'&&!state.cut&&state.photo){$('status').textContent='এই ছবির কাটআউট পাওয়া যায়নি।';$('mRound').checked=true;}
   draw();
 }));
