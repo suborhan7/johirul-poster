@@ -89,10 +89,6 @@
         <input type="text" id="name" maxlength="28" placeholder="যেমন: রায়হান">
       </div>
 
-      <div class="field">
-        <label for="place">গ্রাম / ওয়ার্ড <span class="hint">(না দিলেও চলবে)</span></label>
-        <input type="text" id="place" maxlength="36" placeholder="যেমন: ৫ নং ওয়ার্ড">
-      </div>
 
       <div class="field">
         <label for="msg">৩. আপনার কথা</label>
@@ -257,7 +253,7 @@ function draw(){
   // supporter text
   const X=545, MW=W-X-36;
   const name=($('name').value.trim()||'আপনার নাম');
-  const place=$('place').value.trim();
+  const place='';
   let y=place?968:985;
   ctx.fillStyle='#4a5553';ctx.font="700 40px 'Hind Siliguri'";ctx.fillText('আমি',X,y);y+=52;
   const ns=fitFont(name,800,92,"'Baloo Da 2'",MW);ctx.fillStyle=th.sname;ctx.fillText(name,X,y+(92-ns)*0.6);y+=96;
@@ -353,7 +349,7 @@ $('f').addEventListener('submit',async e=>{
 });
 
 $('photo').addEventListener('change',e=>{const f=e.target.files[0];if(f){$('photoName').textContent=f.name;onPhoto(f);}});
-['name','place','msg'].forEach(id=>$(id).addEventListener('input',draw));
+['name','msg'].forEach(id=>$(id).addEventListener('input',draw));
 document.querySelectorAll('input[name=theme],input[name=mode]').forEach(r=>r.addEventListener('change',()=>{
   if(r.name==='theme'&&state.photo)state.strip=stripColor(state.cut||state.photo,!state.cut);
   if(r.name==='mode'&&r.value==='cut'&&!state.cut&&state.photo){$('status').textContent='এই ছবির কাটআউট পাওয়া যায়নি।';$('mRound').checked=true;}
