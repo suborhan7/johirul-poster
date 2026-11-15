@@ -49,6 +49,7 @@
   .file input{position:absolute;opacity:0;width:1px;height:1px}
   .btn{font:inherit;font-weight:700;font-size:17px;border:0;border-radius:8px;padding:12px 18px;cursor:pointer}
   .btn.ghost{background:transparent;color:var(--fg);border:1px dashed var(--muted)}
+  .btn.fb{display:block;text-align:center;text-decoration:none;background:#1877f2;color:#fff;width:100%;font-size:19px;padding:14px}
   .btn.main{background:var(--gold);color:#1f1600;width:100%;font-size:19px;padding:14px}
   .btn:disabled{opacity:.5;cursor:default}
   .seg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -129,7 +130,8 @@
       </div>
 
       <button type="submit" class="btn main" id="save">কার্ড ডাউনলোড করুন</button>
-      <button type="button" class="btn ghost" id="share" hidden>ফেসবুক / হোয়াটসঅ্যাপে শেয়ার করুন</button>
+      <a class="btn fb" id="share" href="https://www.facebook.com/" target="_blank" rel="noopener" hidden>ফেসবুকে পোস্ট করুন</a>
+      <span class="hint" id="fbHint" hidden>চাপলে ক্যাপশন কপি হবে, আর ফেসবুক খুলবে। সেখানে ডাউনলোড করা ছবিটি দিয়ে লেখাটি পেস্ট করুন।</span>
       <div class="cap" id="capBox" hidden>
         <span class="hint">পোস্ট করার সময় এই ক্যাপশনটি দিন:</span>
         <p id="capText"></p>
@@ -430,14 +432,16 @@ $('f').addEventListener('submit',async e=>{
   $('outImg').src=a.href;$('out').hidden=false;$('capBox').hidden=false;
   st.textContent='কার্ড ডাউনলোড হয়েছে। না হলে নিচের ছবিটি চেপে ধরে সেভ করুন।';
   shareFile=ver===cardVer?new File([blob],fname,{type:'image/png'}):null;
-  if(navigator.canShare&&navigator.canShare({files:[new File([blob],fname,{type:'image/png'})]})){$('share').hidden=false;}
+  $('share').hidden=false;$('fbHint').hidden=false;
   if(ver!==cardVer)refreshOutput();
 });
 // share always sends the card as it looks now (re-rendered after any change), never a stale copy
 let shareFile=null,refreshT=0,cardVer=0;
-$('share').onclick=async()=>{
-  if(!shareFile){draw();const b=await new Promise(r=>cv.toBlob(r,'image/png'));shareFile=new File([b],'johirul-support-card.png',{type:'image/png'});}
-  navigator.share({files:[shareFile],text:CAPTION}).catch(()=>{});};
+$('share').addEventListener('click',()=>{
+  // copy the caption, then let the link open Facebook (app if installed); the card is already saved
+  try{navigator.clipboard.writeText(CAPTION).catch(()=>{});}catch{}
+  $('status').className='status';$('status').textContent='ক্যাপশন কপি হয়েছে। ফেসবুকে ছবিটি দিয়ে লেখাটি পেস্ট করুন।';
+});
 function refreshOutput(){
   cardVer++;shareFile=null;clearTimeout(refreshT);
   if($('out').hidden)return;
