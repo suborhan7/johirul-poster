@@ -49,7 +49,7 @@
   .file input{position:absolute;opacity:0;width:1px;height:1px}
   .btn{font:inherit;font-weight:700;font-size:17px;border:0;border-radius:8px;padding:12px 18px;cursor:pointer}
   .btn.ghost{background:transparent;color:var(--fg);border:1px dashed var(--muted)}
-  .btn.fb{display:block;text-align:center;text-decoration:none;background:#1877f2;color:#fff;width:100%;font-size:19px;padding:14px}
+  .btn.fb{display:block;text-align:center;background:#1877f2;color:#fff;width:100%;font-size:19px;padding:14px}
   .btn.main{background:var(--gold);color:#1f1600;width:100%;font-size:19px;padding:14px}
   .btn:disabled{opacity:.5;cursor:default}
   .seg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -64,7 +64,10 @@
   .field.bad input{border-color:#ff6b57!important;box-shadow:0 0 0 3px rgba(255,107,87,.35);animation:shake .4s}
   @keyframes shake{25%{transform:translateX(-6px)}50%{transform:translateX(6px)}75%{transform:translateX(-3px)}}
   .out{display:grid;gap:8px}
-  .cap{display:grid;gap:8px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px}
+  .cap{display:grid;gap:8px;background:#fff;color:#14231c;border-radius:10px;padding:14px}
+  .cap .hint{color:#4b5a54;font-weight:600}
+  .cap p{white-space:pre-line;font-size:16px;line-height:1.5}
+  .cap .btn.ghost{color:#14231c;border-color:#8a9a93}
   .cap p{margin:0;white-space:pre-line;font-size:15px}
   .out img{width:100%;border-radius:6px}
   footer{font-size:13px;color:var(--muted)}
@@ -130,9 +133,8 @@
       </div>
 
       <button type="submit" class="btn main" id="save">কার্ড ডাউনলোড করুন</button>
-      <a class="btn fb" id="share" href="https://www.facebook.com/" target="_blank" rel="noopener" hidden>ফেসবুকে পোস্ট করুন</a>
-      <span class="hint" id="fbHint" hidden>চাপলে ক্যাপশন কপি হবে, আর ফেসবুক খুলবে। সেখানে ডাউনলোড করা ছবিটি দিয়ে লেখাটি পেস্ট করুন।</span>
-      <div class="cap" id="capBox" hidden>
+      <button type="button" class="btn fb" id="share" hidden>ফেসবুক / হোয়াটসঅ্যাপে শেয়ার করুন</button>
+      <div class="cap" id="capBox">
         <span class="hint">পোস্ট করার সময় এই ক্যাপশনটি দিন:</span>
         <p id="capText"></p>
         <button type="button" class="btn ghost" id="copyCap">ক্যাপশন কপি করুন</button>
@@ -280,6 +282,7 @@ function draw(){
   const m=MSGS[+$('msg').value];
   drawSegments(m[0],X,y,40,th,MW);y+=56;drawSegments(m[1],X,y,40,th,MW);
   ctx.fillStyle='#6b7573';ctx.font="500 26px 'Hind Siliguri'";ctx.fillText('#নারান্দিয়ার_পাশে_জহিরুল',X,H-62);
+  refreshOutput(); // keep a ready-made image for share/download
 }
 
 /* ---------- background removal ---------- */
@@ -415,46 +418,53 @@ $('copyCap').addEventListener('click',async()=>{
 
 $('name').addEventListener('input',()=>{if($('name').value.trim()){$('name').closest('.field').classList.remove('bad');if($('status').classList.contains('err'))$('status').textContent='';}});
 /* ---------- save ---------- */
+function needName(){
+  if($('name').value.trim())return false;
+  const st=$('status');st.className='status err';st.textContent='আগে উপরে আপনার নাম লিখুন।';
+  const f=$('name').closest('.field');f.classList.remove('bad');void f.offsetWidth;f.classList.add('bad');
+  // scroll the name box into view just below the sticky preview; no auto-focus so the keyboard doesn't pop up unexpectedly
+  const pv=document.querySelector('.preview'),stick=getComputedStyle(pv).position==='sticky'&&innerWidth<860?pv.offsetHeight:0;
+  scrollTo({top:Math.max(0,f.getBoundingClientRect().top+scrollY-stick-16),behavior:'smooth'});
+  return true;
+}
+const FNAME='johirul-support-card.png';
+let shareFile=null,refreshT=0,cardVer=0;
+async function currentFile(){
+  if(shareFile)return shareFile;
+  draw();const b=await new Promise(r=>cv.toBlob(r,'image/png'));return new File([b],FNAME,{type:'image/png'});
+}
 $('f').addEventListener('submit',async e=>{
   e.preventDefault();
   const st=$('status');st.className='status';
-  if(!$('name').value.trim()){
-    st.className='status err';st.textContent='আগে উপরে আপনার নাম লিখুন।';
-    const f=$('name').closest('.field');f.classList.remove('bad');void f.offsetWidth;f.classList.add('bad');
-    // scroll the name box into view just below the sticky preview; no auto-focus so the keyboard doesn't pop up unexpectedly
-    const pv=document.querySelector('.preview'),stick=getComputedStyle(pv).position==='sticky'&&innerWidth<860?pv.offsetHeight:0;
-    scrollTo({top:Math.max(0,f.getBoundingClientRect().top+scrollY-stick-16),behavior:'smooth'});
-    return;}
-  draw();const ver=cardVer;
-  const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
-  const fname='johirul-support-card.png';
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fname;document.body.appendChild(a);a.click();a.remove();
-  $('outImg').src=a.href;$('out').hidden=false;$('capBox').hidden=false;
+  if(needName())return;
+  const file=await currentFile();
+  const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=FNAME;document.body.appendChild(a);a.click();a.remove();
+  $('outImg').src=a.href;$('out').hidden=false;
   st.textContent='কার্ড ডাউনলোড হয়েছে। না হলে নিচের ছবিটি চেপে ধরে সেভ করুন।';
-  shareFile=ver===cardVer?new File([blob],fname,{type:'image/png'}):null;
-  $('share').hidden=false;$('fbHint').hidden=false;
-  if(ver!==cardVer)refreshOutput();
 });
-// share always sends the card as it looks now (re-rendered after any change), never a stale copy
-let shareFile=null,refreshT=0,cardVer=0;
-$('share').addEventListener('click',()=>{
-  // copy the caption, then let the link open Facebook (app if installed); the card is already saved
+// share: phone share menu (Facebook, WhatsApp...) with the card as it looks now, plus the caption
+try{if(navigator.canShare&&navigator.canShare({files:[new File([new Blob(['x'])],'t.png',{type:'image/png'})]}))$('share').hidden=false;}catch{}
+$('share').addEventListener('click',async()=>{
+  $('status').className='status';
+  if(needName())return;
   try{navigator.clipboard.writeText(CAPTION).catch(()=>{});}catch{}
-  $('status').className='status';$('status').textContent='ক্যাপশন কপি হয়েছে। ফেসবুকে ছবিটি দিয়ে লেখাটি পেস্ট করুন।';
+  const file=await currentFile();
+  navigator.share({files:[file],text:CAPTION}).catch(()=>{});
+  $('status').textContent='ক্যাপশন কপি করা আছে। ফেসবুকে লেখা না এলে পেস্ট করে দিন।';
 });
 function refreshOutput(){
-  cardVer++;shareFile=null;clearTimeout(refreshT);
-  if($('out').hidden)return;
-  refreshT=setTimeout(()=>cv.toBlob(b=>{shareFile=new File([b],'johirul-support-card.png',{type:'image/png'});
-    const old=$('outImg').src;$('outImg').src=URL.createObjectURL(b);if(old.startsWith('blob:'))URL.revokeObjectURL(old);},'image/png'),150);
+  cardVer++;shareFile=null;clearTimeout(refreshT);const v=cardVer;
+  refreshT=setTimeout(()=>cv.toBlob(b=>{if(v!==cardVer)return;shareFile=new File([b],FNAME,{type:'image/png'});
+    if($('out').hidden)return;
+    const old=$('outImg').src;$('outImg').src=URL.createObjectURL(b);if(old.startsWith('blob:'))URL.revokeObjectURL(old);},'image/png'),400);
 }
 
 $('photo').addEventListener('change',e=>{const f=e.target.files[0];if(f){$('photoName').textContent=f.name;onPhoto(f);}});
-['name','msg'].forEach(id=>['input','change'].forEach(ev=>$(id).addEventListener(ev,()=>{draw();refreshOutput();})));
+['name','msg'].forEach(id=>['input','change'].forEach(ev=>$(id).addEventListener(ev,draw)));
 document.querySelectorAll('input[name=theme],input[name=mode]').forEach(r=>r.addEventListener('change',()=>{
   if(r.name==='theme'&&state.photo)state.strip=stripColor(state.cut||state.photo,!state.cut);
   if(r.name==='mode'&&r.value==='cut'&&!state.cut&&state.photo){$('status').textContent='এই ছবির কাটআউট পাওয়া যায়নি।';$('mRound').checked=true;}
-  draw();refreshOutput();
+  draw();
 }));
 
 /* ---------- boot ---------- */
